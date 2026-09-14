@@ -1,0 +1,32 @@
+# chassis_driver 参数配置
+# 对应底盘: 户外重载型四轮舵轮底盘
+# 通讯: USART1 115200bps 8N1, USB转串口连接
+
+chassis_node:
+  ros__parameters:
+    # 串口设备路径, 根据实际USB口修改 (ttyUSB0 / ttyACM0 等)
+    serial_port: "/dev/ttyUSB0"
+    serial_baud: 115200
+
+    # TF帧ID, 一般不需要改
+    odom_frame: "odom"
+    base_frame: "base_link"
+
+    # odom发布频率 (Hz), 同时也是下行帧发送频率
+    publish_rate: 20.0
+
+    # 控制模式:
+    #   1 = XYZ速度模式 (默认), 发vx/vy/vth给STM32, 下位机做运动学解算
+    #   0 = 独立轮控模式, 上位机做逆运动学, 发4轮角度+速度给STM32
+    # 两种模式的运动学公式已对齐, 行为一致
+    control_mode: 1
+
+    # 底盘几何参数, 影响Mode 0逆运动学精度, 需和STM32固件一致
+    wheelbase:   0.39   # 前后轴距 (m)
+    track_width: 0.44   # 左右轮距 (m)
+
+    # 上电默认启动电机 (1=启动, 0=需手动发motor_enable)
+    start_flag: 1
+
+    # cmd_vel超时 (ms), 超过此时间没收到新指令则自动停车
+    cmd_timeout_ms: 500

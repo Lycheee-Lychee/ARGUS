@@ -1,0 +1,12 @@
+.venv/
+.venv-lerobot/
+__pycache__/
+*.pyc
+.DS_Store
+*.egg-info/
+dist/
+.idea/
+.vscode/
+
+.pio/
+

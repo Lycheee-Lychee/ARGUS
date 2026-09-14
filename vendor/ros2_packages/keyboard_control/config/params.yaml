@@ -1,0 +1,12 @@
+# keyboard_control 参数配置
+# 底盘键盘遥控节点的速度步进值
+
+keyboard_control:
+  ros__parameters:
+    # 按键一次的速度变化量
+    step_x: 0.30   # 前后方向步进 (m/s)
+    step_y: 0.30   # 左右方向步进 (m/s)
+    step_z: 0.50   # 自转方向步进 (rad/s)
+
+    # cmd_vel发布频率 (Hz)
+    publish_rate: 30.0
