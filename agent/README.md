@@ -10,10 +10,36 @@ you --language--> agent/loop.py --HTTP--> robot_bridge --serial--> hardware
 
 ```bash
 cd ~/bimanual_stack
+.venv/bin/python agent/loop.py --plan-only "前進 1 秒"
 .venv/bin/python agent/loop.py "前進 1 秒 然後 關閉夾爪"
-.venv/bin/python agent/loop.py --plan-only "左轉 2 秒"
 ```
 
-OpenClaw: copy `SKILL.md` and `openclaw/*.md` into `~/.openclaw/workspace/skills/` after you install OpenClaw. The gateway is optional; `loop.py` is enough to test the architecture.
+`--plan-only` stops after JSON. Without it, steps POST to `:8080` (mock chassis if no USB).
 
-Ollama is optional. If it is not running, only the built-in phrases work.
+## Cloud planner (DeepSeek)
+
+Known phrases (`前進 1 秒`, `關閉夾爪`, …) never call the cloud.
+
+Copy `.env.example` to `.env` and put a key from [DeepSeek API](https://api-docs.deepseek.com/):
+
+```
+DEEPSEEK_API_KEY=sk-...
+LLM_MODEL=deepseek-v4-flash
+```
+
+Then free-form sentences that are still *drive/gripper/stop* will be compiled to JSON. Visual skills (open door, tidy) are refused until `vla_act` is wired. No camera images are sent.
+
+## Tests
+
+```bash
+bash scripts/run_tests.sh
+```
+
+## OpenClaw
+
+```bash
+bash scripts/install_openclaw_skill.sh   # copies skill files
+bash scripts/install_openclaw.sh         # CLI + skill; gateway optional
+```
+
+The gateway is optional. `loop.py` is enough. If you do run OpenClaw, keep it on loopback and point it at DeepSeek during `openclaw onboard`. Skill path: `~/.openclaw/workspace/skills/robot-bridge/`.

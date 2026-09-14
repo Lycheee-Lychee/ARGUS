@@ -16,6 +16,15 @@ bash scripts/bringup.sh
 
 UI: `http://<thor-ip>:8080/` — language toggle **繁中 / EN** (top right).
 
+Language without hardware:
+
+```bash
+bash scripts/run_tests.sh
+.venv/bin/python agent/loop.py --plan-only "前進 1 秒"
+```
+
+Free-form phrases need `DEEPSEEK_API_KEY` in `.env` (DeepSeek cloud, JSON steps only). OpenClaw skill: `bash scripts/install_openclaw_skill.sh`.
+
 ## Layout
 
 | Path | Role |

@@ -44,3 +44,11 @@ def test_mock_chassis_moves_odom():
     d.close()
     assert st.mock
     assert st.odom_x != 0.0 or st.ok_frames > 0
+
+
+if __name__ == "__main__":
+    for name, fn in list(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            fn()
+            print(name, "ok")
+    print("command tests ok")
