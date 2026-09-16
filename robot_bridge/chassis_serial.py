@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 import struct
 import threading
 import time
@@ -77,20 +78,10 @@ class ChassisDriver:
         self._state = ChassisState(mock=mock, port=port)
         self._last_rx = 0.0
         self._rx_buf = bytearray()
+        self._next_open = 0.0
 
     def start(self) -> None:
-        if not self.mock:
-            import serial
-
-            try:
-                self._ser = serial.Serial(self.port_name, self.baud, timeout=0.05)
-                self._state.connected = True
-            except Exception as exc:
-                print(f"[chassis] serial open failed ({exc}); running in mock mode")
-                self.mock = True
-                self._state.mock = True
-                self._state.connected = False
-        else:
+        if self.mock:
             self._state.connected = False
             self._state.mock = True
         threading.Thread(target=self._loop, name="chassis-io", daemon=True).start()
@@ -100,11 +91,7 @@ class ChassisDriver:
         self.set_cmd(0.0, 0.0, 0.0)
         self.enable_motor(False)
         time.sleep(0.1)
-        if self._ser is not None:
-            try:
-                self._ser.close()
-            except Exception:
-                pass
+        self._close_serial()
 
     def set_cmd(self, vx: float, vy: float, wz: float) -> None:
         vx = max(-self.max_vx, min(self.max_vx, vx))
@@ -157,6 +144,60 @@ class ChassisDriver:
                 last_cmd_age_s=(now - self._last_cmd) if self._last_cmd else 1e9,
             )
 
+    def _close_serial(self) -> None:
+        if self._ser is not None:
+            try:
+                self._ser.close()
+            except Exception:
+                pass
+            self._ser = None
+        self._state.connected = False
+        self._rx_buf.clear()
+
+    def _ensure_serial(self) -> bool:
+        now = time.monotonic()
+        if self._ser is not None:
+            try:
+                if self._ser.is_open:
+                    if self._last_rx and (now - self._last_rx) > 2.5:
+                        print(f"[chassis] stale RX on {self.port_name}; reopening")
+                        self._close_serial()
+                    else:
+                        return True
+            except Exception:
+                self._close_serial()
+        if now < self._next_open:
+            return False
+        self._next_open = now + 1.0
+        if not os.path.exists(self.port_name):
+            self._state.connected = False
+            return False
+        try:
+            import serial
+
+            self._close_serial()
+            self._ser = serial.Serial(
+                self.port_name,
+                self.baud,
+                timeout=0.05,
+                dsrdtr=False,
+                rtscts=False,
+            )
+            try:
+                self._ser.dtr = False
+                self._ser.rts = False
+            except Exception:
+                pass
+            self._rx_buf.clear()
+            self._last_rx = 0.0
+            self._state.connected = False
+            print(f"[chassis] opened {self.port_name}")
+            return True
+        except Exception as exc:
+            self._close_serial()
+            print(f"[chassis] waiting for {self.port_name}: {exc}")
+            return False
+
     def _loop(self) -> None:
         period = 1.0 / 20.0
         while not self._stop.is_set():
@@ -178,6 +219,8 @@ class ChassisDriver:
         if self.mock:
             self._mock_integrate(vx, vy, wz)
             return
+        if not self._ensure_serial():
+            return
         self._read_serial()
         self._send_mode1(vx, vy, wz, motor, do_reset)
 
@@ -197,22 +240,22 @@ class ChassisDriver:
         buf[0] = 0xAA
         buf[1] = 0xAA
         off = 4
-        buf[off:off + 4] = f2b(1.0 if motor else 0.0)
+        buf[off : off + 4] = f2b(1.0 if motor else 0.0)
         off += 4
-        buf[off:off + 4] = f2b(1.0)
+        buf[off : off + 4] = f2b(1.0)
         off += 4
-        buf[off:off + 4] = f2b(vx)
+        buf[off : off + 4] = f2b(vx)
         off += 4
-        buf[off:off + 4] = f2b(vy)
+        buf[off : off + 4] = f2b(vy)
         off += 4
-        buf[off:off + 4] = f2b(wz)
+        buf[off : off + 4] = f2b(wz)
         buf[44:48] = f2b(0.0 if reset else 1.0)
         buf[52] = checksum(bytes(buf[:52]))
         try:
             self._ser.write(buf)
         except Exception as exc:
             print(f"[chassis] write failed: {exc}")
-            self._state.connected = False
+            self._close_serial()
 
     def _read_serial(self) -> None:
         try:
@@ -221,7 +264,7 @@ class ChassisDriver:
                 self._rx_buf.extend(self._ser.read(waiting))
         except Exception as exc:
             print(f"[chassis] read failed: {exc}")
-            self._state.connected = False
+            self._close_serial()
             return
         if len(self._rx_buf) > 4096:
             self._rx_buf = self._rx_buf[-256:]

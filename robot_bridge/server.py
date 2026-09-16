@@ -120,7 +120,7 @@ def capabilities():
     st = driver.snapshot()
     return {
         "chassis": {"wired": st.connected and not st.mock, "mode": "serial" if st.connected and not st.mock else "mock"},
-        "arms": {"wired": (not arms.mock), "mode": "lerobot" if not arms.mock else "mock"},
+        "arms": {"wired": False, "mode": "mock"},
         "camera": cameras.status(),
         "vla_act": vla.capabilities(),
     }
@@ -130,17 +130,16 @@ def capabilities():
 def inventory():
     st = driver.snapshot()
     chassis_on = bool(st.connected and not st.mock)
-    left_on = (not arms.left.mock) and arms.left.ready
-    right_on = (not arms.right.mock) and arms.right.ready
+    arm_on = False
     cam_on = bool(cameras.status().get("devices"))
     return [
         {"part": "Compute", "model": "NVIDIA Jetson Thor", "role": "Onboard computer", "status": "connected"},
         {"part": "Chassis MCU", "model": "STM32 USB-UART 115200", "role": "Wheelbase controller", "status": "connected" if chassis_on else "disconnected"},
         {"part": "Drive motors", "model": "4× steer-drive", "role": "Locomotion", "status": "connected" if chassis_on else "disconnected"},
-        {"part": "Left arm", "model": "SO-ARM100/101 · STS3215 ×6", "role": "Left manipulator", "status": "connected" if left_on else "disconnected"},
-        {"part": "Right arm", "model": "SO-ARM100/101 · STS3215 ×6", "role": "Right manipulator", "status": "connected" if right_on else "disconnected"},
-        {"part": "Left gripper", "model": "Robonine parallel · STS3215", "role": "Left grasp", "status": "connected" if left_on else "disconnected"},
-        {"part": "Right gripper", "model": "Robonine parallel · STS3215", "role": "Right grasp", "status": "connected" if right_on else "disconnected"},
+        {"part": "Left arm", "model": "SO-ARM100/101 · STS3215 ×6", "role": "Left manipulator", "status": "connected" if arm_on else "disconnected"},
+        {"part": "Right arm", "model": "SO-ARM100/101 · STS3215 ×6", "role": "Right manipulator", "status": "connected" if arm_on else "disconnected"},
+        {"part": "Left gripper", "model": "Robonine parallel · STS3215", "role": "Left grasp", "status": "connected" if arm_on else "disconnected"},
+        {"part": "Right gripper", "model": "Robonine parallel · STS3215", "role": "Right grasp", "status": "connected" if arm_on else "disconnected"},
         {"part": "Camera", "model": "USB / RealSense", "role": "Perception", "status": "connected" if cam_on else "disconnected"},
         {"part": "VLA", "model": "vla_act slot", "role": "Contact policy", "status": "connected" if vla.capabilities()["wired"] else "disconnected"},
     ]
@@ -187,7 +186,6 @@ def stop():
     runner.cancel()
     driver.stop()
     driver.enable_motor(False)
-    arms.estop()
     return {"ok": True, "stopped": True}
 
 
@@ -273,10 +271,12 @@ def main() -> None:
     global driver, arms, runner, cameras, vla
     args = parse_args()
     port, missing = pick_chassis_port(None if args.serial == "auto" else args.serial)
-    mock = args.mock or missing
+    mock = args.mock
+    if missing and not mock:
+        print(f"[robot_bridge] {port} not present yet; waiting for USB (not mock)")
     driver = ChassisDriver(port=port, baud=args.baud, timeout_ms=args.timeout_ms, mock=mock)
     driver.start()
-    arms = DualArmDriver(mock=False)
+    arms = DualArmDriver(mock=True)
     runner = TaskRunner(driver, arms)
     cameras = CameraHub()
     vla = VLARuntime(cameras, arms, driver)

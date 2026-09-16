@@ -4,19 +4,16 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VENV="$ROOT/.venv"
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8080}"
-CHASSIS_PORT="${CHASSIS_PORT:-auto}"
+CHASSIS_PORT="${CHASSIS_PORT:-/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0}"
 
 if [[ ! -x "$VENV/bin/python" ]]; then
   echo "venv missing. Run: $ROOT/scripts/install_deps.sh" >&2
   exit 1
 fi
 
-"$VENV/bin/pip" install -q -r "$ROOT/robot_bridge/requirements.txt" || true
-chmod +x "$ROOT/scripts/"*.sh || true
-
 cd "$ROOT"
 echo "serial devices:"
-ls -l /dev/ttyUSB* /dev/ttyACM* /dev/serial/by-id 2>/dev/null || echo "  (none — arm/chassis mock)"
+ls -l /dev/ttyUSB* /dev/ttyACM* /dev/serial/by-id 2>/dev/null || echo "  (none — mock mode)"
 
 if command -v tmux >/dev/null 2>&1; then
   SESSION="robot"
