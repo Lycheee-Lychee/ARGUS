@@ -27,6 +27,7 @@ ALLOWED_ACTIONS = {
 }
 
 SYSTEM = """You control a bimanual wheeled robot through JSON steps only.
+Each step MUST have an "action" field. Do not use the action name as a key.
 Allowed actions:
 - move: vx, vy, wz, duration (seconds). +x forward, +y left, +wz CCW. |vx|,|vy|<=0.5, |wz|<=1.2
 - wait: duration
@@ -38,7 +39,8 @@ Allowed actions:
 - arm_joints: side, joints [6 floats]
 If the user wants a visual skill you cannot do (find object, open door, tidy, camera, search),
 return {"error":"needs camera and vla_act; not wired"}.
-Return ONLY JSON: {"steps":[...]} or {"error":"..."}.
+Return ONLY JSON, for example:
+{"steps":[{"action":"move","vx":0.3,"vy":0,"wz":0,"duration":1.5},{"action":"stop"}]}
 """
 
 
@@ -71,15 +73,39 @@ def _extract_json(content: str) -> dict[str, Any]:
     return json.loads(text)
 
 
+def _normalize_step(step: Any) -> dict[str, Any]:
+    if not isinstance(step, dict):
+        raise ValueError(f"LLM returned invalid step: {step!r}")
+    if step.get("action") in ALLOWED_ACTIONS:
+        return step
+    for act in ALLOWED_ACTIONS:
+        if act not in step:
+            continue
+        val = step.pop(act)
+        step["action"] = act
+        if act == "move" and "vx" not in step:
+            try:
+                step["vx"] = float(val)
+            except (TypeError, ValueError):
+                pass
+        return step
+    raise ValueError(f"LLM returned invalid step: {step!r}")
+
+
 def _validate(planned: dict[str, Any], text: str, source: str) -> dict[str, Any]:
     if planned.get("error"):
         raise ValueError(str(planned["error"]))
+    if planned.get("action") == "error":
+        raise ValueError(str(planned.get("message") or "needs camera and vla_act; not wired"))
     steps = planned.get("steps")
+    if isinstance(planned.get("action"), str) and planned.get("action") != "error" and not steps:
+        steps = [planned]
     if not isinstance(steps, list) or not steps:
         raise ValueError("LLM returned no steps")
-    for step in steps:
-        if not isinstance(step, dict) or step.get("action") not in ALLOWED_ACTIONS:
-            raise ValueError(f"LLM returned invalid step: {step!r}")
+    if steps[0].get("action") == "error":
+        raise ValueError(str(steps[0].get("message") or "needs camera and vla_act; not wired"))
+    planned["steps"] = [_normalize_step(step) for step in steps]
+    for step in planned["steps"]:
         if step["action"] == "move":
             for k in ("vx", "vy", "wz"):
                 step[k] = max(-0.5 if k != "wz" else -1.2, min(0.5 if k != "wz" else 1.2, float(step.get(k, 0))))
@@ -163,7 +189,7 @@ def _ollama_chat(text: str) -> dict[str, Any]:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
+    with urllib.request.urlopen(req, timeout=120) as resp:
         payload = json.loads(resp.read().decode())
     content = payload.get("message", {}).get("content", "")
     return _extract_json(content)
@@ -187,10 +213,11 @@ def plan(text: str) -> dict[str, Any]:
 
     try:
         return _validate(_ollama_chat(text), text, "ollama")
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError):
-        pass
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError) as exc:
+        last_err = f"{last_err}; Ollama failed: {exc}"
 
     raise ValueError(
         f"{last_err}. Use phrases like '前進 1 秒 然後 關閉夾爪', "
+        "start local Ollama (bash scripts/start_ollama.sh pull), "
         "or set DEEPSEEK_API_KEY in .env (cloud planner)."
     )

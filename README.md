@@ -23,7 +23,7 @@ bash scripts/run_tests.sh
 .venv/bin/python agent/loop.py --plan-only "前進 1 秒"
 ```
 
-Free-form phrases need `DEEPSEEK_API_KEY` in `.env` (DeepSeek cloud, JSON steps only). OpenClaw skill: `bash scripts/install_openclaw_skill.sh`.
+Free-form phrases use local Ollama (`bash scripts/start_ollama.sh pull`, model `qwen2.5:7b`) or optional `DEEPSEEK_API_KEY` in `.env`. The teleop command box POSTs `/command` (parser first, then Ollama). With no chassis USB it plans only. OpenClaw skill: `bash scripts/install_openclaw_skill.sh`.
 
 ## Layout
 

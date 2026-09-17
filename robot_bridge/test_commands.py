@@ -32,6 +32,18 @@ def test_parse_stop():
     assert parse_command("停")["steps"] == [{"action": "stop"}]
 
 
+def test_parse_strafe_and_close():
+    from commands import parse_command
+
+    left = parse_command("往左平移")
+    assert left["steps"][0]["action"] == "move"
+    assert left["steps"][0]["vy"] > 0
+    close = parse_command("把夾爪輕輕合上然後停")
+    assert close["steps"][0]["action"] == "gripper"
+    assert close["steps"][0]["open"] == 0.0
+    assert close["steps"][1]["action"] == "stop"
+
+
 def test_mock_chassis_moves_odom():
     d = ChassisDriver(mock=True)
     d.start()

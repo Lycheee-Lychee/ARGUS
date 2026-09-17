@@ -27,7 +27,7 @@ Prefer:
 cd ~/bimanual_stack && .venv/bin/python agent/loop.py "把夾爪合上"
 ```
 
-`loop.py` uses the regex planner first, then DeepSeek if `DEEPSEEK_API_KEY` is set, then Ollama.
+`loop.py` uses the regex planner first, then DeepSeek if `DEEPSEEK_API_KEY` is set, then local Ollama (`qwen2.5:7b`).
 
 ```bash
 curl -s http://127.0.0.1:8080/capabilities

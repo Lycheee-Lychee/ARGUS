@@ -14,20 +14,36 @@ cd ~/bimanual_stack
 .venv/bin/python agent/loop.py "前進 1 秒 然後 關閉夾爪"
 ```
 
-`--plan-only` stops after JSON. Without it, steps POST to `:8080` (mock chassis if no USB).
+`--plan-only` stops after JSON. Without it, steps POST to `:8080` (mock chassis if no USB). The teleop command box uses the same `plan()` via `POST /command`; unplugged chassis → `plan_only`.
 
-## Cloud planner (DeepSeek)
+## Local planner (Ollama 7B)
 
-Known phrases (`前進 1 秒`, `關閉夾爪`, …) never call the cloud.
+Known phrases (`前進 1 秒`, `關閉夾爪`, …) never call a model.
 
-Copy `.env.example` to `.env` and put a key from [DeepSeek API](https://api-docs.deepseek.com/):
+On Thor (JetPack 7 NVIDIA container, loopback only):
+
+```bash
+bash scripts/start_ollama.sh pull    # ~5GB qwen2.5:7b, once
+.venv/bin/python agent/loop.py --plan-only "慢慢往前再停"
+```
+
+Copy `.env.example` to `.env` if needed:
+
+```
+OLLAMA_HOST=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:7b
+```
+
+## Cloud planner (DeepSeek, optional)
+
+If `DEEPSEEK_API_KEY` is set it is tried before Ollama. Key from [DeepSeek API](https://api-docs.deepseek.com/):
 
 ```
 DEEPSEEK_API_KEY=sk-...
 LLM_MODEL=deepseek-v4-flash
 ```
 
-Then free-form sentences that are still *drive/gripper/stop* will be compiled to JSON. Visual skills (open door, tidy) are refused until `vla_act` is wired. No camera images are sent.
+Free-form drive/gripper/stop sentences compile to JSON. Visual skills (open door, tidy) are refused until `vla_act` is wired. No camera images are sent.
 
 ## Tests
 

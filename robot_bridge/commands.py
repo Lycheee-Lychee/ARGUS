@@ -14,8 +14,8 @@ DURATION = re.compile(
 MOVE = [
     (re.compile(r"(前進|向前|forward|go forward)", re.I), {"vx": 0.30, "vy": 0.0, "wz": 0.0}),
     (re.compile(r"(後退|向後|back|backward|reverse)", re.I), {"vx": -0.30, "vy": 0.0, "wz": 0.0}),
-    (re.compile(r"(左移|向左平移|strafe left|left strafe)", re.I), {"vx": 0.0, "vy": 0.30, "wz": 0.0}),
-    (re.compile(r"(右移|向右平移|strafe right|right strafe)", re.I), {"vx": 0.0, "vy": -0.30, "wz": 0.0}),
+    (re.compile(r"(左移|向左平移|往左平移|strafe left|left strafe)", re.I), {"vx": 0.0, "vy": 0.30, "wz": 0.0}),
+    (re.compile(r"(右移|向右平移|往右平移|strafe right|right strafe)", re.I), {"vx": 0.0, "vy": -0.30, "wz": 0.0}),
     (re.compile(r"(左轉|逆時針|turn left|rotate left)", re.I), {"vx": 0.0, "vy": 0.0, "wz": 0.70}),
     (re.compile(r"(右轉|順時針|turn right|rotate right)", re.I), {"vx": 0.0, "vy": 0.0, "wz": -0.70}),
 ]
@@ -64,7 +64,7 @@ def parse_command(text: str) -> dict[str, Any]:
         if re.search(r"(打開夾爪|張開夾爪|open gripper)", part, re.I):
             steps.append({"action": "gripper", "side": _side(part), "open": 1.0})
             continue
-        if re.search(r"(關閉夾爪|合上夾爪|close gripper)", part, re.I):
+        if re.search(r"(關閉夾爪|合上夾爪|夾爪.*合上|合上.*夾爪|close gripper)", part, re.I):
             steps.append({"action": "gripper", "side": _side(part), "open": 0.0})
             continue
         if re.search(r"(home|回原點|回home)", part, re.I):

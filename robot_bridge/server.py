@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import glob
 import os
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -15,13 +16,16 @@ from pydantic import BaseModel, Field
 
 from arms import DualArmDriver
 from chassis_serial import ChassisDriver
-from commands import parse_command
 from perception import CameraHub
 from tasks import TaskRunner
 from vla import VLARuntime
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
+AGENT = ROOT.parent / "agent"
+if str(AGENT) not in sys.path:
+    sys.path.insert(0, str(AGENT))
+from planner import plan as plan_command
 
 driver: ChassisDriver | None = None
 arms: DualArmDriver | None = None
@@ -55,6 +59,7 @@ class GripperCommand(BaseModel):
 
 class CommandBody(BaseModel):
     text: str
+    plan_only: bool = False
 
 
 class TaskBody(BaseModel):
@@ -233,13 +238,16 @@ def gripper(side: str, body: GripperCommand):
 @app.post("/command")
 def command(body: CommandBody):
     try:
-        plan = parse_command(body.text)
-        result = runner.start(plan["text"], plan["steps"])
+        planned = plan_command(body.text)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    if body.plan_only:
+        return {"ok": True, "plan_only": True, **planned}
+    try:
+        result = runner.start(planned["text"], planned["steps"])
     except RuntimeError as exc:
         raise HTTPException(409, str(exc)) from exc
-    return {"ok": True, **result}
+    return {"ok": True, "plan_only": False, "source": planned.get("source"), **result}
 
 
 @app.post("/task")

@@ -24,7 +24,7 @@ cd ~/bimanual_stack && .venv/bin/python agent/loop.py "把夾爪合上"
 cd ~/bimanual_stack && .venv/bin/python agent/loop.py --plan-only "左轉 2 秒"
 ```
 
-`loop.py` uses the phrase parser first, then DeepSeek (`DEEPSEEK_API_KEY` in `~/bimanual_stack/.env`), then Ollama.
+`loop.py` uses the phrase parser first, then DeepSeek (`DEEPSEEK_API_KEY` in `~/bimanual_stack/.env`), then Ollama. The teleop page uses the same stack via `POST /command` (`plan_only: true` when the chassis is unplugged).
 
 ## Direct HTTP
 
